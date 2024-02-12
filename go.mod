@@ -23,10 +23,12 @@ require (
 	github.com/rs/zerolog v1.31.0 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
 replace github.com/consensys/gnark => github.com/celer-network/gnark v0.0.0-20240103092544-e37f964b1a96
+
 replace github.com/ingonyama-zk/icicle v1.0.0 => github.com/ingonyama-zk/icicle v0.1.0
