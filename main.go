@@ -3,17 +3,17 @@ package main
 import (
 	"flag"
 	"fmt"
+
 	"gnark_on_icicle/cubic"
 	"gnark_on_icicle/exponentiate"
 	"gnark_on_icicle/sha256"
-	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc"
 )
 
 const MAX_INPUTS = 1000
 
-func benchmark_from_file(circuit string, scalar_field *big.Int, GPU_Acc bool, file_path string) {
+func benchmark_from_file(circuit string, curve_id ecc.ID, GPU_Acc bool, file_path string) {
 	switch circuit {
 	case "cubic":
 		x, y, err := cubic.Parse_file(file_path)
@@ -21,7 +21,7 @@ func benchmark_from_file(circuit string, scalar_field *big.Int, GPU_Acc bool, fi
 			fmt.Println("Error parsing file: ", err)
 			return
 		}
-		cubic.Benchmark(scalar_field, GPU_Acc, x, y)
+		cubic.Benchmark(curve_id, GPU_Acc, x, y)
 		break
 	case "exponentiate":
 		x, y, e, err := exponentiate.Parse_file(file_path)
@@ -29,7 +29,7 @@ func benchmark_from_file(circuit string, scalar_field *big.Int, GPU_Acc bool, fi
 			fmt.Println("Error parsing file: ", err)
 			return
 		}
-		exponentiate.Benchmark(scalar_field, GPU_Acc, x, y, e)
+		exponentiate.Benchmark(curve_id, GPU_Acc, x, y, e)
 		break
 	case "sha256":
 		hashes, preimages, err := sha256.Parse_file(file_path)
@@ -37,7 +37,7 @@ func benchmark_from_file(circuit string, scalar_field *big.Int, GPU_Acc bool, fi
 			fmt.Println("Error parsing file: ", err)
 			return
 		}
-		sha256.Benchmark(scalar_field, GPU_Acc, hashes, preimages)
+		sha256.Benchmark(curve_id, GPU_Acc, hashes, preimages)
 		break
 	default:
 		fmt.Println("Circuit ", circuit, " unknown. The program will benchmark the sha256 circuit...")
@@ -46,11 +46,12 @@ func benchmark_from_file(circuit string, scalar_field *big.Int, GPU_Acc bool, fi
 			fmt.Println("Error generating random inputs: ", err)
 			return
 		}
-		sha256.Benchmark(scalar_field, GPU_Acc, hashes, preimages)
+		sha256.Benchmark(curve_id, GPU_Acc, hashes, preimages)
 		break
 	}
+	fmt.Println("Benchmark ran successfully. Exiting...")
 }
-func benchmark_rand_vals(circuit string, scalar_field *big.Int, GPU_Acc bool, n int) {
+func benchmark_rand_vals(circuit string, curve_id ecc.ID, GPU_Acc bool, n int) {
 	switch circuit {
 	case "cubic":
 		x, y, err := cubic.Gen_rand_inputs(n)
@@ -58,7 +59,7 @@ func benchmark_rand_vals(circuit string, scalar_field *big.Int, GPU_Acc bool, n 
 			fmt.Println("Error : ", err)
 			return
 		}
-		cubic.Benchmark(scalar_field, GPU_Acc, x, y)
+		cubic.Benchmark(curve_id, GPU_Acc, x, y)
 		break
 	case "exponentiate":
 		x, y, e, err := exponentiate.Gen_rand_inputs(n)
@@ -66,7 +67,7 @@ func benchmark_rand_vals(circuit string, scalar_field *big.Int, GPU_Acc bool, n 
 			fmt.Println("Error : ", err)
 			return
 		}
-		exponentiate.Benchmark(scalar_field, GPU_Acc, x, y, e)
+		exponentiate.Benchmark(curve_id, GPU_Acc, x, y, e)
 		break
 	case "sha256":
 		hashes, preimages, err := sha256.Gen_rand_inputs(n)
@@ -74,7 +75,7 @@ func benchmark_rand_vals(circuit string, scalar_field *big.Int, GPU_Acc bool, n 
 			fmt.Println("Error : ", err)
 			return
 		}
-		sha256.Benchmark(scalar_field, GPU_Acc, hashes, preimages)
+		sha256.Benchmark(curve_id, GPU_Acc, hashes, preimages)
 		break
 	default:
 		fmt.Println("Circuit ", circuit, " unknown. The program will benchmark the sha256 circuit...")
@@ -83,9 +84,10 @@ func benchmark_rand_vals(circuit string, scalar_field *big.Int, GPU_Acc bool, n 
 			fmt.Println("Error generating random inputs: ", err)
 			return
 		}
-		sha256.Benchmark(scalar_field, GPU_Acc, hashes, preimages)
+		sha256.Benchmark(curve_id, GPU_Acc, hashes, preimages)
 		break
 	}
+	fmt.Println("Benchmark ran successfully. Exiting...")
 }
 
 func main() {
@@ -96,6 +98,7 @@ func main() {
 	var n int
 	var file_path string
 
+	fmt.Println("Parsing arguments...")
 	flag.StringVar(&curve, "curve", "bn254", "Specify the curve")
 	flag.StringVar(&circuit, "circuit", "sha256", "Specify the circuit to benchmark")
 	flag.BoolVar(&GPU_Acc, "GPU_Acc", false, "Enable GPU acceleration")
@@ -103,29 +106,33 @@ func main() {
 	flag.StringVar(&file_path, "file_path", "", "Path to file containing pre-determined inputs seperated by a space")
 
 	flag.Parse()
+	fmt.Println("Benchmark parameters: ")
+	fmt.Println("\t-curve:", curve)
+	fmt.Println("\t-circuit:", circuit)
+	fmt.Println("\t-GPU Acceleration: ", GPU_Acc)
 	// Set the scalar field depending on the choice of the curve
-	var scalar_field *big.Int
+	var curve_id ecc.ID
 	switch curve {
 	case "bn254":
-		scalar_field = ecc.BN254.ScalarField()
+		curve_id = ecc.BN254
 		break
 	case "bls12_377":
-		scalar_field = ecc.BLS12_377.ScalarField()
+		curve_id = ecc.BLS12_377
 		break
 	case "bls12_381":
-		scalar_field = ecc.BLS12_381.ScalarField()
+		curve_id = ecc.BLS12_381
 		break
 	case "bw6_761":
-		scalar_field = ecc.BW6_761.ScalarField()
+		curve_id = ecc.BW6_761
 		break
 	default:
-		fmt.Println("Curve ", curve, " unknown. The algoritm will use the bn254 curve ...")
-		scalar_field = ecc.BN254.ScalarField()
+		fmt.Println("Curve", curve, "unknown. The benchmark will use the bn254 curve...")
+		curve_id = ecc.BN254
 		break
 	}
 	// Get the inputs for the circuit
 	if file_path != "" {
-		benchmark_from_file(circuit, scalar_field, GPU_Acc, file_path)
+		benchmark_from_file(circuit, curve_id, GPU_Acc, file_path)
 		return
 	} else if n != 0 {
 		if n < 0 {
@@ -136,11 +143,10 @@ func main() {
 			fmt.Printf("The maximum number of inputs is %d. Pleas a give a smaller number for n\n", MAX_INPUTS)
 			return
 		}
-		benchmark_rand_vals(circuit, scalar_field, GPU_Acc, n)
-		return
+		benchmark_rand_vals(circuit, curve_id, GPU_Acc, n)
 	} else {
 		fmt.Println("No inputs were detected, the program will be running with 10 random inputs...")
-		benchmark_rand_vals(circuit, scalar_field, GPU_Acc, 10)
+		benchmark_rand_vals(circuit, curve_id, GPU_Acc, 10)
 		return
 	}
 

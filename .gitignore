@@ -1,5 +1,5 @@
 .vscode/
+output/
 go.sum
-gpu_stats.log
 gnark_on_icicle
 main

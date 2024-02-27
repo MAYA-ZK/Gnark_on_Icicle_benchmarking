@@ -8,6 +8,7 @@ require (
 )
 
 require (
+	github.com/NVIDIA/go-nvml v0.12.0-2
 	github.com/bits-and-blooms/bitset v1.13.0 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
