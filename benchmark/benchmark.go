@@ -5,12 +5,13 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"os"
 	"strconv"
 	"time"
+	"errors"
 
 	"gnark_on_icicle/gpu"
+	"gnark_on_icicle/constants"
 )
 
 type Log_entry struct {
@@ -46,23 +47,23 @@ type Benchmark_Output struct {
 	Circuit        string
 	Curve          string
 	GPU_Acc        bool
+	GPU_Name       string
 	Num_runs       int
 	Nb_constraints int
-	Cubic_x        []*big.Int
-	Cubic_y        []*big.Int
-	Exponentiate_x []*big.Int
-	Exponentiate_y []*big.Int
-	Exponentiate_e []uint8
 }
 
 type benchmark_params struct {
 	Circuit        string `json:"Circuit"`
 	Curve          string `json:"Curve"`
 	Acc            string `json:"Accelerator"`
+	GPU_name       string `json:"GPU name"`
 	Num_runs       int    `json:"Number of runs"`
 	Nb_constraints int    `json:"Number of constraints"`
-	Arith_dur      int    `json:"Arithmatization duration"`
-	Setup_dur      int    `json:"Setup duration"`
+	Cubic_x_size int `json:"Cubic X_SIZE"`
+	Exponentiate_x_size int `json:"Exponentiate X_SIZE"`
+	Exponentiate_e_size int `json:"Exponentiate E_BITSIZE"`
+	Sha256_preimage_size int `json:"Sha256 preimage size"`
+
 }
 
 func Compile(outp Benchmark_Output) error {
@@ -105,8 +106,21 @@ func Compile(outp Benchmark_Output) error {
 		}
 		log_entries = append(log_entries, entry)
 	}
-	// Add data from the logs
-	outp.Curve = log_entries[5].Curve
+	// Split the log entries into two categories: the solution generation and the proof generation
+	// The rest of the logs are not important
+	var log_entries_sol_gen []Log_entry
+	var log_entries_proof_gen []Log_entry
+	for i:=0;i<len(log_entries);i++{
+		if log_entries[i].Message == "constraint system solver done"{
+			log_entries_sol_gen = append(log_entries_sol_gen, log_entries[i])
+		} else if log_entries[i].Message == "prover done"{
+			log_entries_proof_gen = append(log_entries_proof_gen, log_entries[i])
+		}
+	}
+	if len(log_entries_proof_gen) != outp.Num_runs && len(log_entries_sol_gen) != outp.Num_runs{
+		err := errors.New("Some logs from gnark are missing")
+		return err
+	}
 	// Create a JSON file to save the benchmark parameters
 	bench_params := benchmark_params{
 		Circuit:        outp.Circuit,
@@ -114,8 +128,13 @@ func Compile(outp Benchmark_Output) error {
 		Acc:            map[bool]string{true: "GPU", false: "CPU"}[outp.GPU_Acc],
 		Num_runs:       outp.Num_runs,
 		Nb_constraints: outp.Nb_constraints,
-		Arith_dur:      int(outp.End_arith.Sub(outp.Start_arith).Milliseconds()),
-		Setup_dur:      int(outp.End_setup.Sub(outp.Start_setup).Milliseconds()),
+		Cubic_x_size:   constants.X_SIZE_CUBIC,
+		Exponentiate_x_size: constants.X_SIZE_EXP,
+		Exponentiate_e_size: constants.E_BITSIZE,
+		Sha256_preimage_size: constants.PREIMAGE_SIZE,
+	}
+	if outp.GPU_Acc{
+		bench_params.GPU_name = outp.GPU_Name
 	}
 	// Marshal the data into JSON format
 	data_json, err := json.MarshalIndent(bench_params, "", "    ")
@@ -140,23 +159,8 @@ func Compile(outp Benchmark_Output) error {
 		// The function groth16.prove performs both the solution generation and the proof generation there fore we need to extract
 		// timings from the gnark logs
 		var sol_gen_dur, proof_gen_dur time.Duration
-		if outp.GPU_Acc {
-			if outp.Proof_valid[i] {
-				sol_gen_dur = time.Duration(int(log_entries[4+3*i].Duration)) * time.Millisecond
-				proof_gen_dur = time.Duration(int(log_entries[5+3*i].Duration)) * time.Millisecond
-			} else {
-				sol_gen_dur = time.Duration(int(log_entries[4+2*i].Duration)) * time.Millisecond
-				proof_gen_dur = time.Duration(int(log_entries[5+2*i].Duration)) * time.Millisecond
-			}
-		} else {
-			if outp.Proof_valid[i] {
-				sol_gen_dur = time.Duration(int(log_entries[3+3*i].Duration)) * time.Millisecond
-				proof_gen_dur = time.Duration(int(log_entries[4+3*i].Duration)) * time.Millisecond
-			} else {
-				sol_gen_dur = time.Duration(int(log_entries[3+2*i].Duration)) * time.Millisecond
-				proof_gen_dur = time.Duration(int(log_entries[4+2*i].Duration)) * time.Millisecond
-			}
-		}
+		sol_gen_dur = time.Duration(int(log_entries_sol_gen[i].Duration)) * time.Millisecond
+		proof_gen_dur = time.Duration(int(log_entries_proof_gen[i].Duration)) * time.Millisecond
 		// Subtract the proof generation duration from the end time of the function to get the start time of the proof generation
 		// Subtract the solution generation duration from the start time of the proof generation to ge the start time of the solution generation
 		outp.Start_proof_gen = append(outp.Start_proof_gen, outp.End_proof_gen[i].Add(-proof_gen_dur))
@@ -216,7 +220,7 @@ func Compile(outp Benchmark_Output) error {
 		// Write GPU stats in a csv file
 		data_csv = data_csv[:0]
 		// Create the header
-		data_csv = append(data_csv, []string{"Run number", "Run duration", "GPU util", "GPU mem avg", "GPU mem peak ", "GPU power avg", "GPU power peak", "GPU energy"})
+		data_csv = append(data_csv, []string{"Run number", "Run duration", "GPU util avg", "GPU util max", "GPU mem avg", "GPU mem peak ", "GPU power avg", "GPU power peak", "GPU energy"})
 		for i := 0; i < outp.Num_runs; i++ {
 			// Run duration
 			run_dur := outp.End_proof_ver[i].Sub(outp.Start_witness_gen[i])

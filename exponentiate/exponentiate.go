@@ -164,8 +164,9 @@ func Benchmark(curve_id ecc.ID, GPU_Acc bool, x []*big.Int, y []*big.Int, e []ui
 	if GPU_Acc {
 		// Initilaize NVML
 		gpu.Init_NVML()
-		// Get the GPU device
-		device := gpu.Get_device(0)
+		// Get the GPU device and its name
+		device, name := gpu.Get_device(0)
+		outp.GPU_Name = name
 
 		// Start the GPU sampling funciton as a goroutine
 		go gpu.GPU_Periodic_Samples(gpu.SAMPLIMG_PERIOD, device, stop, GPU_samples)

@@ -32,13 +32,20 @@ func Shutdown_NVML() {
 	}
 }
 
-func Get_device(GPU_id int) nvml.Device {
+func Get_device(GPU_id int) (nvml.Device, string) {
 	// Get device
 	device, ret := nvml.DeviceGetHandleByIndex(int(GPU_id))
 	if ret != nvml.SUCCESS {
 		log.Fatalf("Unable to get device at index %d: %v", GPU_id, nvml.ErrorString(ret))
 	}
-	return device
+	// Get device name
+	name, ret := device.GetName()
+	if ret != nvml.SUCCESS {
+		log.Fatalf("Failed to get name for device: %v\n", nvml.ErrorString(ret))
+		return device, ""
+	}
+
+	return device, name
 
 }
 func Gpu_sample(GPU nvml.Device) GPU_Sample {
@@ -71,7 +78,7 @@ func Gpu_sample(GPU nvml.Device) GPU_Sample {
 }
 func GPU_Periodic_Samples(sampling_period uint64, GPU nvml.Device, stop <-chan struct{}, samples chan<- []GPU_Sample) {
 	// Create a ticker that triggers every sampling period
-	ticker := time.NewTicker(time.Duration(sampling_period * 1000000))
+	ticker := time.NewTicker(time.Duration(sampling_period * 1e6))
 	defer ticker.Stop()
 	// Create an unbounded slice to store GPU samples
 	saved_samples := []GPU_Sample{}
