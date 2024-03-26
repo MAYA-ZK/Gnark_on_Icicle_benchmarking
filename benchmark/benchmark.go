@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"time"
-	"errors"
 
-	"gnark_on_icicle/gpu"
 	"gnark_on_icicle/constants"
+	"gnark_on_icicle/gpu"
 )
 
 type Log_entry struct {
@@ -53,17 +53,16 @@ type Benchmark_Output struct {
 }
 
 type benchmark_params struct {
-	Circuit        string `json:"Circuit"`
-	Curve          string `json:"Curve"`
-	Acc            string `json:"Accelerator"`
-	GPU_name       string `json:"GPU name"`
-	Num_runs       int    `json:"Number of runs"`
-	Nb_constraints int    `json:"Number of constraints"`
-	Cubic_x_size int `json:"Cubic X_SIZE"`
-	Exponentiate_x_size int `json:"Exponentiate X_SIZE"`
-	Exponentiate_e_size int `json:"Exponentiate E_BITSIZE"`
-	Sha256_preimage_size int `json:"Sha256 preimage size"`
-
+	Circuit              string `json:"Circuit"`
+	Curve                string `json:"Curve"`
+	Acc                  string `json:"Accelerator"`
+	GPU_name             string `json:"GPU name"`
+	Num_runs             int    `json:"Number of runs"`
+	Nb_constraints       int    `json:"Number of constraints"`
+	Cubic_x_size         int    `json:"Cubic X_SIZE"`
+	Exponentiate_x_size  int    `json:"Exponentiate X_SIZE"`
+	Exponentiate_e_size  int    `json:"Exponentiate E_BITSIZE"`
+	Sha256_preimage_size int    `json:"Sha256 preimage size"`
 }
 
 func Compile(outp Benchmark_Output) error {
@@ -110,30 +109,30 @@ func Compile(outp Benchmark_Output) error {
 	// The rest of the logs are not important
 	var log_entries_sol_gen []Log_entry
 	var log_entries_proof_gen []Log_entry
-	for i:=0;i<len(log_entries);i++{
-		if log_entries[i].Message == "constraint system solver done"{
+	for i := 0; i < len(log_entries); i++ {
+		if log_entries[i].Message == "constraint system solver done" {
 			log_entries_sol_gen = append(log_entries_sol_gen, log_entries[i])
-		} else if log_entries[i].Message == "prover done"{
+		} else if log_entries[i].Message == "prover done" {
 			log_entries_proof_gen = append(log_entries_proof_gen, log_entries[i])
 		}
 	}
-	if len(log_entries_proof_gen) != outp.Num_runs && len(log_entries_sol_gen) != outp.Num_runs{
+	if len(log_entries_proof_gen) != outp.Num_runs && len(log_entries_sol_gen) != outp.Num_runs {
 		err := errors.New("Some logs from gnark are missing")
 		return err
 	}
 	// Create a JSON file to save the benchmark parameters
 	bench_params := benchmark_params{
-		Circuit:        outp.Circuit,
-		Curve:          outp.Curve,
-		Acc:            map[bool]string{true: "GPU", false: "CPU"}[outp.GPU_Acc],
-		Num_runs:       outp.Num_runs,
-		Nb_constraints: outp.Nb_constraints,
-		Cubic_x_size:   constants.X_SIZE_CUBIC,
-		Exponentiate_x_size: constants.X_SIZE_EXP,
-		Exponentiate_e_size: constants.E_BITSIZE,
+		Circuit:              outp.Circuit,
+		Curve:                outp.Curve,
+		Acc:                  map[bool]string{true: "GPU", false: "CPU"}[outp.GPU_Acc],
+		Num_runs:             outp.Num_runs,
+		Nb_constraints:       outp.Nb_constraints,
+		Cubic_x_size:         constants.X_SIZE_CUBIC,
+		Exponentiate_x_size:  constants.X_SIZE_EXP,
+		Exponentiate_e_size:  constants.E_BITSIZE,
 		Sha256_preimage_size: constants.PREIMAGE_SIZE,
 	}
-	if outp.GPU_Acc{
+	if outp.GPU_Acc {
 		bench_params.GPU_name = outp.GPU_Name
 	}
 	// Marshal the data into JSON format
@@ -251,7 +250,7 @@ func Compile(outp Benchmark_Output) error {
 		// Create the header
 		data_csv = append(data_csv, []string{"t", "GPU util", "GPU mem", "GPU power"})
 		for i := 0; i < len(timestamps); i++ {
-			t_str := strconv.FormatFloat(float64(timestamps[i].Sub(timestamps[0]).Microseconds())/100.0, 'f', 3, 64)
+			t_str := strconv.FormatFloat(float64(timestamps[i].Sub(timestamps[0]).Microseconds())/1000.0, 'f', 3, 64)
 			gpu_util_str := strconv.FormatUint(gpu_util[i], 10)
 			gpu_mem_str := strconv.FormatFloat(float64(gpu_mem[i])/(1024.0*1024.0), 'f', 3, 64)
 			gpu_pow_str := strconv.FormatUint(gpu_pow[i], 10)
