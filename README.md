@@ -1,3 +1,7 @@
+<figure>
+  <img src="graphs/LinkedIn_header_1.png" alt="Maya-ZK Affiliation">
+</figure>
+
 # Gnark_on_Icicle_benchmarking
 
 Repo for Benchmarking the Gnark ZK Library using Icicle for GPU accelration
