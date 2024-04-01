@@ -131,6 +131,21 @@ Alternatively, we also created a bash script that runs multiple benchmarks with 
 `./benchmark.sh`
 Simply define the list of circuits, curves and whether GPU acceleration should be used or not and the script will run the benchmark for all possible combinations of parameters.
 
+### Output format
+
+The output if the benchmarked will be saved under the folder `output/banchmark-i` where `i` is an incrementing index.
+The output folder contains several files:
+
+- `benchmark_parameters.json`: contains the parameters of the benchmark like the circuit, the curve, value of the constants, etc.
+- `benchmark_results.csv`: contains the duration (in ms) of each step of each run and whether the proof generated was valid or not.
+- `benchmark_summary.csv`: contains the average duration (in ms) of each step across all runs.
+
+If GPU acceleration is used, other files are generated:
+
+- `gpu_stats.csv`: contains the average and peak resource utilization for the GPU during each run. The units are as follows: utilization(%)/memory(MB)/power(mW)/energy(mJ)
+- `gpu_samples.csv`: contains the raw samples of the GPU resource utilization starting from the first run (setup and circuit compilation are not included)
+- `timestamps.csv`: contains the starting time of each step of each run. This is meant to be used in conjunction with the `gpu_smaples.csv` file to further study the use of the GPU in different steps.
+
 ## Results
 
 We ran the benchmark with the SHA256 circuit on a RTX A5000 (ADA version) GPU using multiple curves (bn254, bls12-377, bw6-761) and pre-image sizes (32 B, 1 KB, 32 KB) with and without GPU acceleration.
